@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# Upload directories
+uploads/
+client-uploads/
+server-uploads/
+
+# Environment files
+.env
+.env.local
+
+# Docker files
+docker-compose*.yml
+Dockerfile
+.dockerignore
+
+# Editor directories
+.vscode/
+.idea/

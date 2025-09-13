@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server File Manager (Admin)</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #fff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: #f8fafc;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+            overflow: hidden;
+            padding: 40px;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .file-list {
+            background: #fff;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-top: 20px;
+        }
+        .file-item {
+            display: flex;
+            align-items: center;
+            padding: 15px 20px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .file-item:last-child {
+            border-bottom: none;
+        }
+        .file-info {
+            flex: 1;
+        }
+        .file-name {
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 3px;
+        }
+        .file-meta {
+            font-size: 0.85em;
+            color: #64748b;
+        }
+        .file-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .btn {
+            background: rgba(0, 255, 255, 0.3);
+            color: #008b8b;
+            border: 1px solid #00cccc;
+            padding: 8px 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+        .btn-danger {
+            background: rgba(255, 0, 0, 0.1);
+            color: #b91c1c;
+            border: 1px solid #ef4444;
+        }
+        .btn-update {
+            background: rgba(0, 255, 127, 0.15);
+            color: #047857;
+            border: 1px solid #10b981;
+        }
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            background: #10b981;
+            z-index: 1000;
+            display: none;
+        }
+        .notification.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Server File Manager (Admin)</h1>
+        <div id="server-files" class="file-list"></div>
+    </div>
+    <div id="notification" class="notification"></div>
+    <script>
+        async function fetchFiles() {
+            const res = await fetch('/api/files/server');
+            const files = await res.json();
+            displayFiles(files);
+        }
+        function displayFiles(files) {
+            const filesEl = document.getElementById('server-files');
+            if (files.length === 0) {
+                filesEl.innerHTML = '<p style="text-align: center; padding: 40px; color: #64748b;">No files in server directory</p>';
+                return;
+            }
+            filesEl.innerHTML = files.map(file => `
+                <div class="file-item">
+                    <div class="file-info">
+                        <div class="file-name">${file.name}</div>
+                        <div class="file-meta">${formatFileSize(file.size)} • ${formatDate(file.modified)}</div>
+                    </div>
+                    <div class="file-actions">
+                        <button class="btn btn-update" onclick="updateFilePrompt('${file.name}')">Update</button>
+                        <button class="btn btn-danger" onclick="deleteFile('${file.name}')">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        function formatDate(dateString) {
+            return new Date(dateString).toLocaleDateString() + ' ' + new Date(dateString).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        }
+        function showNotification(msg, color = '#10b981') {
+            const n = document.getElementById('notification');
+            n.textContent = msg;
+            n.style.background = color;
+            n.classList.add('show');
+            setTimeout(() => n.classList.remove('show'), 2000);
+        }
+        async function deleteFile(filename) {
+            if (!confirm('Delete ' + filename + '?')) return;
+            const res = await fetch(`/api/files/server/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+            if (res.ok) {
+                showNotification('File deleted!');
+                fetchFiles();
+            } else {
+                showNotification('Delete failed', '#ef4444');
+            }
+        }
+        function updateFilePrompt(filename) {
+            const newContent = prompt('Paste new content for ' + filename + ':');
+            if (newContent !== null) updateFile(filename, newContent);
+        }
+        async function updateFile(filename, content) {
+            const res = await fetch(`/api/files/server/${encodeURIComponent(filename)}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content })
+            });
+            if (res.ok) {
+                showNotification('File updated!');
+                fetchFiles();
+            } else {
+                showNotification('Update failed', '#ef4444');
+            }
+        }
+        fetchFiles();
+    </script>
+</body>
+</html>
